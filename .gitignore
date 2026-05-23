@@ -1,0 +1,160 @@
+# =========================================
+# UXMiner - .gitignore
+# =========================================
+
+# -----------------------------------------
+# Python
+# -----------------------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtualenv
+.venv/
+venv/
+env/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# PyInstaller
+*.spec
+
+# Logs
+*.log
+
+# pytest
+.pytest_cache/
+
+# mypy
+.mypy_cache/
+
+# Ruff
+.ruff_cache/
+
+# Coverage
+.coverage
+htmlcov/
+
+# -----------------------------------------
+# IDEs / Editors
+# -----------------------------------------
+.vscode/
+.idea/
+
+# Linux
+*~
+
+# -----------------------------------------
+# OS
+# -----------------------------------------
+.DS_Store
+Thumbs.db
+
+# -----------------------------------------
+# Jupyter
+# -----------------------------------------
+.ipynb_checkpoints/
+
+# -----------------------------------------
+# Data / Generated Artifacts
+# -----------------------------------------
+
+# Raw videos
+data/videos/
+
+# Extracted audio
+data/audio/
+
+# Audio chunks
+data/audio_chunks/
+
+# Whisper transcription
+data/transcriptions/
+
+# Extracted frames
+data/frames/
+
+# OCR output
+data/ocr/
+
+# Semantic states
+data/states/
+
+# Click detection
+data/clicks/
+
+# Reports
+data/reports/
+
+# Debug click frames
+data/debug_clicks/
+
+# Temporary files
+data/tmp/
+
+# -----------------------------------------
+# Models
+# -----------------------------------------
+models/
+*.bin
+*.gguf
+*.pt
+*.pth
+
+# -----------------------------------------
+# Ollama local cache (optional)
+# -----------------------------------------
+ollama/
+
+# -----------------------------------------
+# FFmpeg temporary artifacts
+# -----------------------------------------
+*.wav
+*.pcm
+
+# -----------------------------------------
+# Large media
+# -----------------------------------------
+*.mp4
+*.mkv
+*.avi
+*.mov
+
+# -----------------------------------------
+# Generated HTML
+# -----------------------------------------
+*.html
+
+# -----------------------------------------
+# CSV exports
+# -----------------------------------------
+*.csv
+
+# -----------------------------------------
+# JSON outputs
+# Keep configuration JSONs versioned if desired
+# -----------------------------------------
+*_clicks.json
+*_states.json
+*_semantic_states.json
+*_ocr.json
+*_transcription.json
+
+# -----------------------------------------
+# Images
+# -----------------------------------------
+*.png
+*.jpg
+*.jpeg
+
+# -----------------------------------------
+# Secrets / local config
+# -----------------------------------------
+.env
+.env.*
+config.local.json
