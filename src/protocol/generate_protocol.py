@@ -157,26 +157,25 @@ def main() -> None:
             sort_keys=False
         )
 
-    print("Concluído.")
-    print(f"Protocolo gerado: {output_path}")
+    print("Completed.")
+    print(f"Generated protocol: {output_path}")
 
-    print("\nTarefas no protocolo:")
+    print("\nTasks in protocol:")
     for task in protocol["tasks"]:
         print(
             f"{task['id']} | "
-            f"duração especialista: {task['expert_duration_seconds']}s | "
+            f"expert duration: {task['expert_duration_seconds']}s | "
             f"timeout: {task['timeout_seconds']}s | "
-            f"sequência: {' -> '.join(task['expert_sequence'])}"
+            f"sequence: {' -> '.join(task['expert_sequence'])}"
         )
 
-    print("\nEstados no protocolo:")
+    print("\nStates in protocol:")
     for state in protocol["states"]:
         print(
             f"{state['id']} | "
             f"{state['semantic_label']} | "
             f"{state.get('semantic_summary', '')}"
         )
-
 
 if __name__ == "__main__":
     main()

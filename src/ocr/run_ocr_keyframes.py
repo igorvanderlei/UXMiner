@@ -4,17 +4,18 @@ import json
 from PIL import Image
 import pytesseract
 
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from utils.video_crop import load_video_crop, apply_crop_to_pil
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 OUTPUT_DIR = PROJECT_ROOT / "data" / "outputs"
 OCR_DIR = PROJECT_ROOT / "data" / "ocr"
-
-CROP_TOP_PIXELS = 180
-CROP_BOTTOM_PIXELS = 0
-CROP_LEFT_PIXELS = 0
-CROP_RIGHT_PIXELS = 0
-
 
 def find_task_frames_json() -> Path:
     matches = sorted(OUTPUT_DIR.glob("*_task_frames.json"))
@@ -27,27 +28,10 @@ def find_task_frames_json() -> Path:
     return matches[0]
 
 
-def crop_image(image: Image.Image) -> Image.Image:
-    width, height = image.size
-
-    left = CROP_LEFT_PIXELS
-    top = CROP_TOP_PIXELS
-    right = width - CROP_RIGHT_PIXELS
-    bottom = height - CROP_BOTTOM_PIXELS
-
-    if left >= right or top >= bottom:
-        raise ValueError(
-            f"Crop inválido: imagem={width}x{height}, "
-            f"left={left}, top={top}, right={right}, bottom={bottom}"
-        )
-
-    return image.crop((left, top, right, bottom))
-
-
-def run_ocr(image_path: Path) -> str:
+def run_ocr(image_path: Path, crop: dict) -> str:
     image = Image.open(image_path)
 
-    cropped = crop_image(image)
+    cropped = apply_crop_to_pil(image, crop)
 
     text = pytesseract.image_to_string(
         cropped,
@@ -60,6 +44,12 @@ def run_ocr(image_path: Path) -> str:
 
 def main() -> None:
     task_frames_json = find_task_frames_json()
+
+    video_stem = task_frames_json.stem.replace("_task_frames", "")
+    crop = load_video_crop(video_stem)
+
+    print(f"Video stem: {video_stem}")
+    print(f"OCR crop: {crop}")
 
     with task_frames_json.open("r", encoding="utf-8") as f:
         data = json.load(f)
@@ -78,12 +68,12 @@ def main() -> None:
             "frames": []
         }
 
-        print(f"OCR da {task['task_id']}...")
+        print(f"OCR for {task['task_id']}...")
 
         for frame in task["frames"]:
             image_path = Path(frame["frame_file"])
 
-            text = run_ocr(image_path)
+            text = run_ocr(image_path, crop)
 
             task_output["frames"].append({
                 "frame_id": f"{task['task_id']}_{frame['source_frame'].replace('.png', '')}",
@@ -98,19 +88,14 @@ def main() -> None:
             print(
                 f"  {frame['source_frame']} | "
                 f"{frame['relative_timestamp_seconds']:.2f}s | "
-                f"{len(text)} caracteres"
+                f"{len(text)} characters"
             )
 
         output_tasks.append(task_output)
 
     output = {
         "source_task_frames_json": str(task_frames_json),
-        "ocr_crop": {
-            "top_pixels": CROP_TOP_PIXELS,
-            "bottom_pixels": CROP_BOTTOM_PIXELS,
-            "left_pixels": CROP_LEFT_PIXELS,
-            "right_pixels": CROP_RIGHT_PIXELS
-        },
+        "ocr_crop": crop,
         "tasks_count": len(output_tasks),
         "tasks": output_tasks
     }
@@ -121,8 +106,8 @@ def main() -> None:
     with output_path.open("w", encoding="utf-8") as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
 
-    print("Concluído.")
-    print(f"Saída OCR: {output_path}")
+    print("Completed.")
+    print(f"OCR output: {output_path}")
 
 
 if __name__ == "__main__":

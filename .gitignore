@@ -97,6 +97,11 @@ data/debug_clicks/
 # Temporary files
 data/tmp/
 
+data/runs/
+data/outputs/
+data/crops/
+data/transcripts/
+data/protocols/
 # -----------------------------------------
 # Models
 # -----------------------------------------

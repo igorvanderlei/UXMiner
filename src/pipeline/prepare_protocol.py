@@ -1,4 +1,4 @@
-from pathlib import Path
+ffrom pathlib import Path
 import subprocess
 import sys
 import shutil
@@ -32,7 +32,7 @@ STEPS = [
 
 
 def clean_outputs() -> None:
-    print("\nLimpando saídas anteriores...\n")
+    print("\nCleaning previous outputs...\n")
 
     for path in OUTPUT_PATHS:
         if path.exists():
@@ -40,14 +40,14 @@ def clean_outputs() -> None:
 
         path.mkdir(parents=True, exist_ok=True)
 
-    print("Limpeza concluída.")
+    print("Cleanup completed.")
 
 
 def run_step(name: str, script: str) -> None:
     script_path = PROJECT_ROOT / script
 
     print("\n" + "=" * 70)
-    print(f"ETAPA: {name}")
+    print(f"STEP: {name}")
     print("=" * 70)
 
     result = subprocess.run(
@@ -61,7 +61,7 @@ def run_step(name: str, script: str) -> None:
 
 
 def main() -> None:
-    print("Preparando protocolo a partir do vídeo gabarito...")
+    print("Preparing protocol from benchmark video...")
 
     clean_outputs()
 
@@ -69,10 +69,10 @@ def main() -> None:
         run_step(name, script)
 
     print("\n" + "=" * 70)
-    print("PROTOCOLO GERADO COM SUCESSO")
+    print("PROTOCOL GENERATED SUCCESSFULLY")
     print("=" * 70)
 
-    print("\nArquivo gerado:")
+    print("\nGenerated file:")
     print(PROJECT_ROOT / "data" / "protocols")
 
 

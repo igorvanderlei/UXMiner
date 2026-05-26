@@ -138,11 +138,11 @@ def main() -> None:
     with states_json.open("r", encoding="utf-8") as f:
         data = json.load(f)
 
-    print(f"Arquivo de estados: {states_json}")
-    print(f"Modelo Ollama: {MODEL_NAME}")
+    print(f"States file: {states_json}")
+    print(f"Ollama model: {MODEL_NAME}")
 
     for task in data["tasks"]:
-        print(f"\nEnriquecendo {task['task_id']}...")
+        print(f"\nEnriching {task['task_id']}...")
 
         for state in task["states"]:
             state_id = state["state_id"]
@@ -167,7 +167,7 @@ def main() -> None:
                 print(semantic["semantic_label"])
 
             except Exception as e:
-                print(f"ERRO: {e}")
+                print(f"ERROR: {e}")
 
                 fallback_keywords = (
                     state.get("ocr_summary", "").split()[:6]
@@ -188,8 +188,8 @@ def main() -> None:
     with output_path.open("w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
-    print("\nConcluído.")
-    print(f"Estados enriquecidos: {output_path}")
+    print("\nCompleted.")
+    print(f"Enriched states: {output_path}")
 
 
 if __name__ == "__main__":

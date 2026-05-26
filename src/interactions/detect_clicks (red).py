@@ -368,8 +368,8 @@ def save_outputs(video_name: str, clicks: list[dict], summary: list[dict], tasks
         writer.writerows(summary)
 
     print(f"JSON: {output_json}")
-    print(f"CSV cliques: {output_csv}")
-    print(f"CSV resumo: {summary_csv}")
+    print(f"Clicks CSV: {output_csv}")
+    print(f"Summary CSV: {summary_csv}")
 
 
 def main() -> None:
@@ -382,23 +382,23 @@ def main() -> None:
     output_dir = CLICKS_DIR / video_name
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"Vídeo: {video_path}")
-    print(f"Transcrição: {transcript_path}")
-    print(f"Tarefas: {len(tasks)}")
-    print(f"FPS de processamento: {PROCESSING_FPS}")
+    print(f"Video: {video_path}")
+    print(f"Transcript: {transcript_path}")
+    print(f"Tasks: {len(tasks)}")
+    print(f"Processing FPS: {PROCESSING_FPS}")
 
     clicks = process_video(video_path, tasks, output_dir)
     summary = summarize_clicks(clicks, tasks)
 
     save_outputs(video_name, clicks, summary, tasks)
 
-    print("\nResumo por tarefa:")
+    print("\nTask summary:")
     for item in summary:
         print(
             f"{item['task_id']} | "
-            f"{item['clicks_count']} cliques | "
-            f"{item['clicks_per_minute']:.2f} cliques/min"
-        )
+            f"{item['clicks_count']} clicks | "
+            f"{item['clicks_per_minute']:.2f} clicks/min"
+
 
 
 if __name__ == "__main__":

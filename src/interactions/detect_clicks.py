@@ -4,6 +4,12 @@ import csv
 import cv2
 import numpy as np
 
+import sys
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from utils.video_crop import load_video_crop, apply_crop_to_cv
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -23,21 +29,15 @@ MIN_RED_PIXELS = 80
 CLICK_DEBOUNCE_SECONDS = 0.10
 SPATIAL_DEBOUNCE_PIXELS = 20
 
-DOUBLE_CLICK_WINDOW_SECONDS = 0.25
+DOUBLE_CLICK_WINDOW_SECONDS = 0.20
 DOUBLE_CLICK_MAX_DISTANCE_PIXELS = 45
 
 CLICK_BURST_WINDOW_SECONDS = 3.0
 CLICK_BURST_MAX_CLICKS = 15
 
 
-
 SAVE_DEBUG_FRAMES = True
 DEBUG_MAX_FRAMES = 280
-
-CROP_TOP_PIXELS = 180
-CROP_BOTTOM_PIXELS = 0
-CROP_LEFT_PIXELS = 0
-CROP_RIGHT_PIXELS = 0
 
 ENABLE_HOUGH_RED = True
 HOUGH_DP = 1.2
@@ -96,21 +96,8 @@ def task_for_timestamp(tasks: list[dict], timestamp: float) -> dict | None:
     return None
 
 
-def crop_frame(frame):
-    height, width = frame.shape[:2]
-
-    top = CROP_TOP_PIXELS
-    bottom = height - CROP_BOTTOM_PIXELS
-    left = CROP_LEFT_PIXELS
-    right = width - CROP_RIGHT_PIXELS
-
-    if top >= bottom or left >= right:
-        raise ValueError(
-            f"Crop inválido: frame={width}x{height}, "
-            f"top={top}, bottom={bottom}, left={left}, right={right}"
-        )
-
-    return frame[top:bottom, left:right], left, top
+def crop_frame(frame, crop: dict):
+    return apply_crop_to_cv(frame, crop)
 
 def strong_red_mask_from_cropped(cropped):
     hsv = cv2.cvtColor(cropped, cv2.COLOR_BGR2HSV)
@@ -131,8 +118,8 @@ def strong_red_mask_from_cropped(cropped):
 
     return mask
 
-def red_mask_from_frame(frame):
-    cropped, offset_x, offset_y = crop_frame(frame)
+def red_mask_from_frame(frame, crop: dict):
+    cropped, offset_x, offset_y = crop_frame(frame, crop)
 
     hsv = cv2.cvtColor(cropped, cv2.COLOR_BGR2HSV)
 
@@ -212,8 +199,8 @@ def contour_candidate(contour, red_pixels: int | None = None) -> dict | None:
     }
 
 
-def detect_red_circle_contour(frame) -> tuple[bool, dict | None]:
-    mask, offset_x, offset_y = red_mask_from_frame(frame)
+def detect_red_circle_contour(frame, crop: dict) -> tuple[bool, dict | None]:
+    mask, offset_x, offset_y = red_mask_from_frame(frame, crop)
 
     red_pixels = int(cv2.countNonZero(mask))
 
@@ -246,9 +233,9 @@ def detect_red_circle_contour(frame) -> tuple[bool, dict | None]:
     return True, best
 
 
-def detect_red_circle_hough(frame) -> tuple[bool, dict | None]:
-    cropped, offset_x, offset_y = crop_frame(frame)
-    mask, _, _ = red_mask_from_frame(frame)
+def detect_red_circle_hough(frame, crop: dict) -> tuple[bool, dict | None]:
+    cropped, offset_x, offset_y = crop_frame(frame, crop)
+    mask, _, _ = red_mask_from_frame(frame, crop)
     strong_mask = strong_red_mask_from_cropped(cropped)
 
     red_pixels = int(cv2.countNonZero(mask))
@@ -369,14 +356,14 @@ def detect_red_circle_hough(frame) -> tuple[bool, dict | None]:
 
     return True, best
 
-def detect_click_candidate(frame) -> tuple[bool, dict | None]:
-#    detected, info = detect_red_circle_contour(frame)
+def detect_click_candidate(frame, crop: dict) -> tuple[bool, dict | None]:
+#    detected, info = detect_red_circle_contour(frame, crop)
 
 #    if detected:
 #        return True, info
 
     if ENABLE_HOUGH_RED:
-        detected, info = detect_red_circle_hough(frame)
+        detected, info = detect_red_circle_hough(frame, crop)
 
         if detected:
             return True, info
@@ -472,7 +459,7 @@ def detect_click_burst(
     return len(recent) >= CLICK_BURST_MAX_CLICKS
 
 
-def process_video(video_path: Path, tasks: list[dict], output_dir: Path) -> list[dict]:
+def process_video(video_path: Path, tasks: list[dict], output_dir: Path, crop: dict) -> list[dict]:
     cap = cv2.VideoCapture(str(video_path))
     failed_tasks = set()
     task_clicks_map = {}
@@ -516,7 +503,7 @@ def process_video(video_path: Path, tasks: list[dict], output_dir: Path) -> list
             frame_index += 1
             continue
 
-        detected, info = detect_click_candidate(frame)
+        detected, info = detect_click_candidate(frame, crop)
 
         task_clicks_map.setdefault(task["task_id"], [])
 
@@ -553,9 +540,8 @@ def process_video(video_path: Path, tasks: list[dict], output_dir: Path) -> list
                     print(
                         f"[BURST FAILURE] "
                         f"{task['task_id']} "
-                        f"abortada por rajada de cliques."
+                        f"aborted due to click burst."
                     )
-
                     continue
 
                 clicks.append(click)
@@ -629,8 +615,9 @@ def summarize_clicks(clicks: list[dict], tasks: list[dict]) -> list[dict]:
 
     return summary
 
+def save_outputs(video_name: str, clicks: list[dict], summary: list[dict], tasks: list[dict], crop: dict) -> None:
 
-def save_outputs(video_name: str, clicks: list[dict], summary: list[dict], tasks: list[dict]) -> None:
+
     CLICKS_DIR.mkdir(parents=True, exist_ok=True)
 
     output_json = CLICKS_DIR / f"{video_name}_clicks.json"
@@ -643,12 +630,7 @@ def save_outputs(video_name: str, clicks: list[dict], summary: list[dict], tasks
                 "processing_fps": PROCESSING_FPS,
                 "click_debounce_seconds": CLICK_DEBOUNCE_SECONDS,
                 "spatial_debounce_pixels": SPATIAL_DEBOUNCE_PIXELS,
-                "crop": {
-                    "top_pixels": CROP_TOP_PIXELS,
-                    "bottom_pixels": CROP_BOTTOM_PIXELS,
-                    "left_pixels": CROP_LEFT_PIXELS,
-                    "right_pixels": CROP_RIGHT_PIXELS
-                },
+                "crop": crop,
                 "red_detector": {
                     "min_circle_area": MIN_CIRCLE_AREA,
                     "max_circle_area": MAX_CIRCLE_AREA,
@@ -718,13 +700,17 @@ def save_outputs(video_name: str, clicks: list[dict], summary: list[dict], tasks
         writer.writerows(summary)
 
     print(f"JSON: {output_json}")
-    print(f"CSV cliques: {output_csv}")
-    print(f"CSV resumo: {summary_csv}")
+    print(f"Clicks CSV: {output_csv}")
+    print(f"Summary CSV: {summary_csv}")
 
 
 def main() -> None:
     video_path = find_video_file()
     video_name = video_path.stem.replace(" ", "_")
+
+    crop = load_video_crop(video_name)
+
+    print(f"Video crop: {crop}")
 
     transcript_path = find_transcript_file(video_name)
     tasks = load_tasks(transcript_path)
@@ -732,25 +718,25 @@ def main() -> None:
     output_dir = CLICKS_DIR / video_name
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"Vídeo: {video_path}")
-    print(f"Transcrição: {transcript_path}")
-    print(f"Tarefas: {len(tasks)}")
-    print(f"FPS de processamento: {PROCESSING_FPS}")
+    print(f"Video: {video_path}")
+    print(f"Transcript: {transcript_path}")
+    print(f"Tasks: {len(tasks)}")
+    print(f"Processing FPS: {PROCESSING_FPS}")
 
-    clicks = process_video(video_path, tasks, output_dir)
+    clicks = process_video(video_path, tasks, output_dir, crop)
     classify_double_clicks(clicks)
     summary = summarize_clicks(clicks, tasks)
 
-    save_outputs(video_name, clicks, summary, tasks)
+    save_outputs(video_name, clicks, summary, tasks, crop)
 
-    print("\nResumo por tarefa:")
+    print("\nTask summary:")
     for item in summary:
         print(
             f"{item['task_id']} | "
-            f"{item['clicks_count']} cliques | "
+            f"{item['clicks_count']} clicks | "
             f"HSV={item['clicks_red_hsv_contour']} | "
             f"Hough={item['clicks_red_hough']} | "
-            f"{item['clicks_per_minute']:.2f} cliques/min"
+            f"{item['clicks_per_minute']:.2f} clicks/min"
         )
 
 

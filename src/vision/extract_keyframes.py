@@ -126,9 +126,9 @@ def main() -> None:
     if not frame_paths:
         raise FileNotFoundError(f"Nenhum frame PNG encontrado em {frames_dir}")
 
-    print(f"Diretório de frames: {frames_dir}")
-    print(f"Transcrição: {transcript_path}")
-    print(f"Tarefas encontradas: {len(tasks)}")
+    print(f"Frames directory: {frames_dir}")
+    print(f"Transcript: {transcript_path}")
+    print(f"Tasks found: {len(tasks)}")
 
     output_tasks = []
     total_task_frames = 0
@@ -154,7 +154,7 @@ def main() -> None:
         print(
             f"{task['task_id']} | "
             f"{task['duration_seconds']:.2f}s | "
-            f"{len(frames)} frames da tarefa"
+            f"{len(frames)} task frames"
         )
 
     output_json = OUTPUT_DIR / f"{video_name}_task_frames.json"
@@ -175,10 +175,10 @@ def main() -> None:
             ensure_ascii=False
         )
 
-    print("Concluído.")
-    print(f"Total de frames em tarefas: {total_task_frames}")
-    print(f"Saída: {output_json}")
-    print(f"Imagens: {output_dir}")
+    print("Completed.")
+    print(f"Total task frames: {total_task_frames}")
+    print(f"Output: {output_json}")
+    print(f"Images: {output_dir}")
 
 
 if __name__ == "__main__":

@@ -118,15 +118,15 @@ def main() -> None:
     AUDIO_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    print(f"Vídeo encontrado: {video_path}")
+    print(f"Video found: {video_path}")
 
-    print("Extraindo metadados...")
+    print("Extracting metadata...")
     metadata = get_video_metadata(video_path)
 
-    print("Extraindo áudio...")
+    print("Extracting audio...")
     extract_audio(video_path, audio_path)
 
-    print("Extraindo frames...")
+    print("Extracting frames...")
     extract_frames(video_path, frames_output_dir, fps=2)
 
     metadata["audio"] = str(audio_path)
@@ -136,10 +136,10 @@ def main() -> None:
     with metadata_path.open("w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2, ensure_ascii=False)
 
-    print("Concluído.")
-    print(f"Áudio: {audio_path}")
+    print("Completed.")
+    print(f"Audio: {audio_path}")
     print(f"Frames: {frames_output_dir}")
-    print(f"Metadados: {metadata_path}")
+    print(f"Metadata: {metadata_path}")
 
 
 if __name__ == "__main__":

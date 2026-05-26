@@ -342,16 +342,16 @@ def main() -> None:
                     f"{edge['end_timestamp']}\n"
                 )
 
-    print("Concluído.")
-    print(f"Estados: {states_output}")
-    print(f"Arestas CSV: {edges_output}")
+    print("Completed.")
+    print(f"States: {states_output}")
+    print(f"Edges CSV: {edges_output}")
 
     for task in result["tasks"]:
         print(
             f"{task['task_id']} | "
             f"{task['frames_count']} frames | "
-            f"{task['states_count']} estados | "
-            f"{task['transitions_count']} transições"
+            f"{task['states_count']} states | "
+            f"{task['transitions_count']} transitions"
         )
 
         for state in task["states"]:

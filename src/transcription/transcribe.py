@@ -63,8 +63,40 @@ def find_audio_file() -> Path:
     return matches[0]
 
 
+NUMBER_WORDS = {
+    "um": "1",
+    "uma": "1",
+    "dois": "2",
+    "duas": "2",
+    "três": "3",
+    "tres": "3",
+    "quatro": "4",
+    "cinco": "5",
+    "seis": "6",
+    "sete": "7",
+    "oito": "8",
+    "nove": "9",
+    "dez": "10",
+    "onze": "11",
+    "doze": "12",
+    "treze": "13",
+    "catorze": "14",
+    "quatorze": "14",
+    "quinze": "15",
+    "dezesseis": "16",
+    "dezessete": "17",
+    "dezoito": "18",
+    "dezenove": "19",
+    "vinte": "20",
+}
+
+
+
 def normalize_text(text: str) -> str:
     text = text.lower().strip()
+
+    text = re.sub(r"[.,;:!?]", "", text)
+
     text = re.sub(r"\benfim\s*,?\s*tarefa\b", "fim tarefa", text)
     text = re.sub(r"\bafim\s*,?\s*tarefa\b", "fim tarefa", text)
     text = re.sub(r"\be\s*,?\s*enfim\s*,?\s*tarefa\b", "fim tarefa", text)
@@ -73,6 +105,16 @@ def normalize_text(text: str) -> str:
     text = re.sub(r"\be\s*,?\s*enfim\s*,?\s*tarefa\b", "fim tarefa", text)
     text = re.sub(r"\bin[ií]cio\s*,?\s*tarefa\b", "início tarefa", text)
     text = re.sub(r"\bin[ií]cio\s+da\s+reforma\b", "início tarefa 1", text)
+    text = re.sub(r"\bparefa\b", "tarefa", text)
+    text = re.sub(r"\btarifa\b", "tarefa", text)
+
+    for word, number in NUMBER_WORDS.items():
+        text = re.sub(
+            rf"\b{re.escape(word)}\b",
+            number,
+            text
+        )
+
     text = re.sub(r"\s+", " ", text)
     return text
 
@@ -292,6 +334,7 @@ def is_end_marker(text: str) -> bool:
         r"\btempo\b.*\bencerrou\b",
         r"\btempo\b.*\bacabou\b",
         r"\btempo\s+para\s+fazer\b.*\bencerrou\b",
+        r"\bfim\b"
     ]
 
     return any(re.search(pattern, text) for pattern in patterns)
@@ -348,7 +391,7 @@ def add_marker(markers: list[dict], marker: dict) -> None:
     markers.append(marker)
 
 
-def detect_task_markers(segments: list[dict]) -> list[dict]:
+def detect_task_markers(segments: list[dict], video_duration: float | None = None) -> list[dict]:
     markers = []
     open_task_id = None
     next_task_number = 1
@@ -358,9 +401,41 @@ def detect_task_markers(segments: list[dict]) -> list[dict]:
 
         numbered_markers = extract_numbered_markers_inside_segment(seg)
 
+#        if numbered_markers:
+#            for marker in numbered_markers:
+#                add_marker(markers, marker)
+#            continue
+
         if numbered_markers:
             for marker in numbered_markers:
-                add_marker(markers, marker)
+                marker_type = marker["type"]
+                task_id = marker["task_id"]
+
+                if marker_type == "start":
+                    if open_task_id is not None:
+                        add_marker(markers, {
+                            "type": "end",
+                            "task_id": open_task_id,
+                            "timestamp": marker["timestamp"],
+                            "text": marker.get("text", ""),
+                            "source": "implicit_end_by_next_start"
+                        })
+
+                    add_marker(markers, marker)
+                    open_task_id = task_id
+
+                    try:
+                        task_number = int(task_id.replace("T", ""))
+                        next_task_number = max(next_task_number, task_number + 1)
+                    except ValueError:
+                        pass
+
+                elif marker_type == "end":
+                    add_marker(markers, marker)
+
+                    if open_task_id == task_id:
+                        open_task_id = None
+
             continue
 
         if is_start_marker(text):
@@ -403,6 +478,15 @@ def detect_task_markers(segments: list[dict]) -> list[dict]:
                 open_task_id = None
 
             continue
+
+    if open_task_id is not None:
+        add_marker(markers, {
+            "type": "end",
+            "task_id": open_task_id,
+            "timestamp": video_duration,
+            "text": "",
+            "source": "implicit_end_eof"
+        })
 
     markers.sort(key=lambda item: (item["timestamp"], item["type"]))
     return markers
@@ -456,7 +540,7 @@ def transcribe_chunks(model: WhisperModel, chunks: list[dict]) -> tuple[list[dic
 
     for chunk in chunks:
         print(
-            f"Transcrevendo {chunk['chunk_id']} "
+            f"Transcribing {chunk['chunk_id']} "
             f"({chunk['start']:.2f}s–{chunk['end']:.2f}s)..."
         )
 
@@ -502,20 +586,20 @@ def main() -> None:
     TRANSCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
     AUDIO_CHUNKS_DIR.mkdir(parents=True, exist_ok=True)
 
-    print("Preparando chunks por silêncio...")
+    print("Preparing chunks based on silence...")
     chunks = prepare_audio_chunks(audio_path)
-    print(f"Chunks gerados: {len(chunks)}")
+    print(f"Generated chunks: {len(chunks)}")
 
-    print("Carregando modelo Whisper...")
+    print("Loading Whisper model...")
     model = WhisperModel(
         MODEL_SIZE,
-        device="cpu",
-        compute_type="int8"
+        device="cuda",
+        compute_type="float16"
     )
 
     segments, language, duration = transcribe_chunks(model, chunks)
 
-    markers = detect_task_markers(segments)
+    markers = detect_task_markers(segments, video_duration=duration)
     tasks = build_task_segments(markers)
 
     transcript_data = {
@@ -542,10 +626,10 @@ def main() -> None:
     with output_path.open("w", encoding="utf-8") as f:
         json.dump(transcript_data, f, indent=2, ensure_ascii=False)
 
-    print("Concluído.")
-    print(f"Transcrição salva em: {output_path}")
+    print("Completed.")
+    print(f"Transcript saved to: {output_path}")
 
-    print("\nMarcadores detectados:\n")
+    print("\nDetected markers:\n")
     for marker in markers:
         print(
             f"{marker['type']} | "
@@ -555,15 +639,14 @@ def main() -> None:
             f"{marker.get('match_text', marker.get('text', ''))}"
         )
 
-    print("\nTarefas detectadas:\n")
+    print("\nDetected tasks:\n")
     for task in tasks:
         print(
             f"{task['task_id']} | "
             f"{task['duration_seconds']:.2f}s | "
-            f"início: {task.get('start_marker_source', '')} | "
-            f"fim: {task.get('end_marker_source', '')}"
+            f"start: {task.get('start_marker_source', '')} | "
+            f"end: {task.get('end_marker_source', '')}"
         )
-
 
 if __name__ == "__main__":
     main()

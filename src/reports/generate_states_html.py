@@ -129,6 +129,25 @@ def count_double_click_groups(task_clicks: list[dict]) -> int:
     return len(groups)
 
 
+def count_visual_clicks(clicks: list[dict]) -> int:
+    count = 0
+    seen_double_groups = set()
+
+    for click in clicks:
+        group = click.get("double_click_group")
+
+        if group:
+            if group in seen_double_groups:
+                continue
+
+            seen_double_groups.add(group)
+            count += 1
+        else:
+            count += 1
+
+    return count
+
+
 def clicks_for_transition(task_clicks: list[dict], transition: dict) -> list[dict]:
     start = transition["start_timestamp"]
     end = transition["end_timestamp"]
@@ -151,12 +170,22 @@ def render_click_timeline(
     duration = max(end - start, 0.001)
 
     markers = []
+    rendered_double_groups = set()
 
     for click in transition_clicks:
+        double = is_double_click(click)
+
+        if double:
+            group = click.get("double_click_group")
+
+            if group in rendered_double_groups:
+                continue
+
+            rendered_double_groups.add(group)
+
         pos = ((click["timestamp_seconds"] - start) / duration) * 100
         pos = max(0, min(100, pos))
 
-        double = is_double_click(click)
         klass = "click-marker double" if double else "click-marker single"
 
         title = (
@@ -189,17 +218,18 @@ def render_transition_clicks(task_clicks: list[dict], transitions: list[dict]) -
     for tr in transitions:
         tr_clicks = clicks_for_transition(task_clicks, tr)
 
-        simple_count = sum(1 for c in tr_clicks if not is_double_click(c))
-        double_events = count_double_click_groups(tr_clicks)
+        visual_clicks = count_visual_clicks(tr_clicks)
+        single_events = sum(1 for c in tr_clicks if not is_double_click(c))
+        double_groups = count_double_click_groups(tr_clicks)
 
         rows.append(f"""
         <div class="transition-click-row">
             <div class="transition-click-header">
                 <code>{esc(tr['source'])} → {esc(tr['target'])}</code>
                 <span>{tr['duration_seconds']:.2f}s</span>
-                <span>{len(tr_clicks)} clicks</span>
-                <span>{simple_count} single</span>
-                <span>{double_events} double</span>
+                <span>{visual_clicks} visual clicks</span>
+                <span>{single_events} single</span>
+                <span>{double_groups} double</span>
             </div>
             {render_click_timeline(tr_clicks, tr)}
         </div>
@@ -291,11 +321,12 @@ def build_html(data: dict, clicks_data: dict, assets_dir: Path) -> str:
 
         for tr in task.get("transitions", []):
             tr_clicks = clicks_for_transition(task_clicks, tr)
+            visual_clicks = count_visual_clicks(tr_clicks)
 
             transitions_html.append(
                 f"<li><code>{esc(tr['source'])} → {esc(tr['target'])}</code> "
                 f"<strong>{tr['duration_seconds']:.2f}s</strong> "
-                f"<span class='inline-clicks'>({len(tr_clicks)} clicks)</span></li>"
+                f"<span class='inline-clicks'>({visual_clicks} visual clicks)</span></li>"
             )
 
         tasks_html.append(f"""
@@ -307,9 +338,9 @@ def build_html(data: dict, clicks_data: dict, assets_dir: Path) -> str:
                     <span>Frames: {esc(task.get('frames_count', ''))}</span>
                     <span>States: {task['states_count']}</span>
                     <span>Transitions: {task['transitions_count']}</span>
-                    <span>Clicks: {total_clicks}</span>
-                    <span>Single clicks: {simple_clicks}</span>
-                    <span>Double clicks: {double_click_groups}</span>
+                    <span>Click events: {total_clicks}</span>
+                    <span>Single click events: {simple_clicks}</span>
+                    <span>Double-click groups: {double_click_groups}</span>
                 </div>
             </header>
 
@@ -609,6 +640,10 @@ def build_html(data: dict, clicks_data: dict, assets_dir: Path) -> str:
         color: #666;
     }}
 
+    .task-level-legend {{
+        margin-bottom: 12px;
+    }}
+
     .legend-dot {{
         display: inline-block;
         width: 10px;
@@ -623,10 +658,6 @@ def build_html(data: dict, clicks_data: dict, assets_dir: Path) -> str:
 
     .legend-dot.double {{
         background: #d62728;
-    }}
-
-    .task-level-legend {{
-        margin-bottom: 12px;
     }}
 
     @media (max-width: 900px) {{
