@@ -163,3 +163,6 @@ ollama/
 .env
 .env.*
 config.local.json
+
+!docs/
+!docs/**
